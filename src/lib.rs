@@ -22,8 +22,9 @@ use libc::c_int;
 use libc::{close, ioctl, socket};
 use libc::{AF_INET, SOCK_DGRAM};
 
-use crate::network_interface::NetworkInterface;
-use crate::network_interface::NetworkInterfaceConfig;
+extern crate network_interface;
+use network_interface::NetworkInterface;
+use network_interface::NetworkInterfaceConfig;
 
 #[cfg(target_os = "linux")]
 use nix::sys::socket;
