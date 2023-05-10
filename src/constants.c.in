@@ -1,36 +1,47 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+//If you are building for a windows system (POSIX)
 #ifdef _WIN32
-    
+    typedef struct constant {
+        const char* name;
+        uint64_t    value;
+    } constant_t;
+
+    static constant_t constants[] = {
+        {NULL, 0}
+    };
+    return constants;
+
 #else
     #include <sys/ioctl.h>
     #include <sys/socket.h>
     #include <net/if.h>
+
+    typedef struct constant {
+        const char* name;
+        uint64_t    value;
+    } constant_t;
+
+    constant_t* rust_get_constants() {
+        static constant_t constants[] = {
+            // Testable constants
+            {{~ #each test_constants as |c|}}
+    #ifdef {{c}}
+                { "{{c}}", {{c}} },
+    #endif
+            {{~ /each}}
+
+            // "Always" constants
+            {{~ #each always_constants as |c|}}
+                { "{{c}}", {{c}} },
+            {{/each}}
+
+            // End of list sentinel
+            { NULL, 0 },
+        };
+
+        return constants;
+    }
+
 #endif
-
-typedef struct constant {
-    const char* name;
-    uint64_t    value;
-} constant_t;
-
-constant_t* rust_get_constants() {
-    static constant_t constants[] = {
-        // Testable constants
-        {{~ #each test_constants as |c|}}
-#ifdef {{c}}
-            { "{{c}}", {{c}} },
-#endif
-        {{~ /each}}
-
-        // "Always" constants
-        {{~ #each always_constants as |c|}}
-            { "{{c}}", {{c}} },
-        {{/each}}
-
-        // End of list sentinel
-        { NULL, 0 },
-    };
-
-    return constants;
-}
