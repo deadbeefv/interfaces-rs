@@ -3,15 +3,18 @@
 
 //If you are building for a windows system (POSIX)
 #ifdef _WIN32
-    typedef struct constant {
-        const char* name;
-        uint64_t    value;
-    } constant_t;
 
-    static constant_t constants[] = {
-        {NULL, 0}
-    };
-    return constants;
+    constant_t* rust_get_constants() {
+        typedef struct constant {
+            const char* name;
+            uint64_t    value;
+        } constant_t;
+
+        static constant_t constants[] = {
+            {NULL, 0}
+        };
+        return constants;
+    }
 
 #else
     #include <sys/ioctl.h>
