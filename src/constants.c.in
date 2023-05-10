@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 //If you are building for a windows system (POSIX)
-#ifdef _WIN32
+#if defined(_WIN32)
 
     typedef struct constant {
         const char* name;
