@@ -48,10 +48,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <net/if.h>
-#include <ifaddrs.h>
+#ifndef _WIN32
+
+    #include <sys/ioctl.h>
+    #include <sys/socket.h>
+    #include <net/if.h>
+    #include <ifaddrs.h>
+
+#endif
 
 
 // Only need this function on OS X.
