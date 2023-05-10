@@ -251,7 +251,7 @@ impl Interface {
         let res: Vec<Interface> = Vec::new();
 
         for netif in network_interfaces.iter() {
-            println!("{:?}", itf);
+            println!("{:?}", netif);
             println!(" ");
         }
 
