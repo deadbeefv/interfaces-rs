@@ -22,6 +22,9 @@ use libc::c_int;
 use libc::{close, ioctl, socket};
 use libc::{AF_INET, SOCK_DGRAM};
 
+use network_interface::NetworkInterface;
+use network_interface::NetworkInterfaceConfig;
+
 #[cfg(target_os = "linux")]
 use nix::sys::socket;
 
@@ -243,6 +246,17 @@ impl Interface {
     pub fn get_all() -> Result<Vec<Interface>> {
         // Map each interface address to a single interface name.
         let mut ifs = HashMap::new();
+
+        let network_interfaces: Vec<NetworkInterface> = NetworkInterface::show().unwrap();
+        let res: Vec<Interface> = Vec::new();
+
+        for netif in network_interfaces.iter() {
+            println!("{:?}", itf);
+            println!(" ");
+        }
+
+
+
         for cur in IfAddrIterator::new()? {
             // Only support interfaces with valid names.
             let ifname = match convert_ifaddr_name(cur) {
