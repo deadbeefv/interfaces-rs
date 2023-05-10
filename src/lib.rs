@@ -23,6 +23,7 @@ use libc::{close, ioctl, socket};
 use libc::{AF_INET, SOCK_DGRAM};
 
 extern crate network_interface;
+
 use network_interface::NetworkInterface;
 use network_interface::NetworkInterfaceConfig;
 
