@@ -279,11 +279,11 @@ impl Interface {
         for netif in network_interfaces.iter() {
             let mut addrs: Vec<Address> = Vec::new();
             
-            for addr in netif.addr {
+            for addr in &netif.addr {
                 addrs.push(to_address(addr));
             }
             let intf = Interface {
-                name: netif.name,
+                name: netif.name.clone(),
                 addresses: addrs,
                 flags: InterfaceFlags {
                     bits: 0x04
