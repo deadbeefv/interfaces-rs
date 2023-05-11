@@ -13,6 +13,7 @@ extern crate nix;
 
 use std::fmt;
 use std::net;
+use libc::c_int;
 use std::ptr;
 
 extern crate network_interface;
@@ -236,23 +237,6 @@ impl Interface {
 
         Ok(res)
     }
-
-    /// Returns an `Interface` instance representing the interface with the given name.  Will
-    /// return `Ok(Some(Interface))` on success, `Ok(None)` if there is no such interface, and
-    /// `Err(..)` on failure.
-    ///
-    /// ```
-    /// # use interfaces::{Interface, Result};
-    /// # fn foo() -> Result<Option<Interface>> {
-    /// let iface = Interface::get_by_name("lo")?;
-    /// if let Some(ref lo) = iface {
-    ///     assert!(lo.is_loopback());
-    /// } else {
-    ///     println!("Could not find loopback interface");
-    /// }
-    /// # Ok(iface)
-    /// # }
-    /// ```
 
 }
 
