@@ -686,7 +686,7 @@ mod tests {
     #[test]
     fn test_interface_is_comparable() {
         let ifs = Interface::get_all().unwrap();
-        for intf in ifs{
+        for intf in &ifs{
             println!("{}", intf);
         }
         assert!(ifs[0] == ifs[0]);
