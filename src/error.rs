@@ -22,12 +22,12 @@ impl InterfacesError {
     /// Create a new instance of `InterfacesError` with the error set to the current value of the
     /// libc `errno` variable.
     pub fn last_os_error() -> InterfacesError {
-        return InterfacesError::Errno(nix::errno::Errno::last());
+        return InterfacesError::Errno(nix::Errno::last());
     }
 }
 
-impl From<nix::errno::Errno> for InterfacesError {
-    fn from(e: nix::errno::Errno) -> InterfacesError {
+impl From<nix::Errno> for InterfacesError {
+    fn from(e: nix::Errno) -> InterfacesError {
         InterfacesError::Errno(e)
     }
 }
