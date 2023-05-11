@@ -27,6 +27,8 @@ extern crate network_interface;
 use network_interface::NetworkInterface;
 use network_interface::NetworkInterfaceConfig;
 
+use network_interface::V4IfAddr;
+use network_interface::V6IfAddr;
 #[cfg(target_os = "linux")]
 use nix::sys::socket;
 
@@ -109,6 +111,22 @@ pub struct Address {
 
     /// The broadcast address or destination address, if it applies.
     pub hop: Option<NextHop>,
+}
+
+impl Address {
+    fn to_address(addr: network_interface::Addr) -> Address {
+        Address { 
+            kind: {
+                match addr {
+                    network_interface::Addr::V4(V4IfAddr) => Kind::Ipv4,
+                    network_interface::Addr::V6(V6IfAddr) => Kind::Ipv6
+                }
+            }, 
+            addr: Some(addr.ip()), 
+            mask: addr.netmask(), 
+            hop: Some(NextHop::Broadcast(addr.broadcast()))
+        }
+    }
 }
 
 /// HardwareAddr represents a hardware address (commonly known as a MAC address) of a given
@@ -246,45 +264,59 @@ pub struct Interface {
 impl Interface {
     /// Retrieve a list of all interfaces on this system.
     pub fn get_all() -> Result<Vec<Interface>> {
-        // Map each interface address to a single interface name.
-        let mut ifs = HashMap::new();
 
         let network_interfaces: Vec<NetworkInterface> = NetworkInterface::show().unwrap();
-        let res: Vec<Interface> = Vec::new();
+        let mut res: Vec<Interface> = Vec::new();
 
         for netif in network_interfaces.iter() {
-            println!("{:?}", netif);
-            println!(" ");
-        }
-
-
-
-        for cur in IfAddrIterator::new()? {
-            // Only support interfaces with valid names.
-            let ifname = match convert_ifaddr_name(cur) {
-                Some(n) => n,
-                None => continue,
-            };
-
-            let iface = if ifs.contains_key(&ifname) {
-                ifs.get_mut(&ifname).unwrap()
-            } else {
-                let new_if = match Interface::new_from_ptr(cur) {
-                    Ok(i) => i,
-                    Err(_) => continue,
-                };
-                ifs.insert(ifname.clone(), new_if);
-                ifs.get_mut(&ifname).unwrap()
-            };
-
-            // If we can, convert this current address.
-            if let Some(addr) = convert_ifaddr_address(cur) {
-                iface.addresses.push(addr);
+            let mut addrs: Vec<Address> = Vec::new();
+            
+            for addr in netif.addr {
+                addrs.push(self.to_address(addr));
             }
+            let intf = Interface {
+                name: netif.name,
+                addresses: addrs,
+                flags: InterfaceFlags {
+                    bits: 0x04
+                },
+                sock: 1,
+            };
+            res.push(intf);
         }
 
-        let ret = ifs.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
-        Ok(ret)
+        Ok(res)
+
+
+        // // Map each interface address to a single interface name.
+        // let mut ifs = HashMap::new();
+
+        // for cur in IfAddrIterator::new()? {
+        //     // Only support interfaces with valid names.
+        //     let ifname = match convert_ifaddr_name(cur) {
+        //         Some(n) => n,
+        //         None => continue,
+        //     };
+
+        //     let iface = if ifs.contains_key(&ifname) {
+        //         ifs.get_mut(&ifname).unwrap()
+        //     } else {
+        //         let new_if = match Interface::new_from_ptr(cur) {
+        //             Ok(i) => i,
+        //             Err(_) => continue,
+        //         };
+        //         ifs.insert(ifname.clone(), new_if);
+        //         ifs.get_mut(&ifname).unwrap()
+        //     };
+
+        //     // If we can, convert this current address.
+        //     if let Some(addr) = convert_ifaddr_address(cur) {
+        //         iface.addresses.push(addr);
+        //     }
+        // }
+
+        // let ret = ifs.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
+        // Ok(ret)
     }
 
     /// Returns an `Interface` instance representing the interface with the given name.  Will
@@ -642,7 +674,7 @@ mod tests {
     #[test]
     fn test_interface_is_comparable() {
         let ifs = Interface::get_all().unwrap();
-
+        println!(ifs);
         assert!(ifs[0] == ifs[0]);
     }
 
