@@ -24,7 +24,7 @@ use network_interface::NetworkInterfaceConfig;
 use network_interface::V4IfAddr;
 use network_interface::V6IfAddr;
 
-use error::InterfacesError;
+// use error::InterfacesError;
 use flags::InterfaceFlags;
 
 // mod error;
