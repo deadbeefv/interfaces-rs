@@ -11,7 +11,7 @@ use nix;
 pub enum InterfacesError {
     /// Errno indicates that something went wrong with an underlying syscall.  The internal value
     /// is the `errno` that was returned.
-    Errno(nix::errno::Errno),
+    Errno(nix::Errno),
 
     /// NotSupported indicates that something required for this operation is not currently
     /// supported on this platform or computer.  The internal string may contain more detail.
