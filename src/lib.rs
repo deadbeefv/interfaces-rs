@@ -660,6 +660,12 @@ impl Drop for Interface {
     }
 }
 
+impl fmt::Display for Interface {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Name: {} \nAddresses {}\n", self.name, self.addresses)
+    }
+}
+
 // Helper function
 fn copy_slice(dst: &mut [u8], src: &[u8]) -> usize {
     let mut c = 0;
