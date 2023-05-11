@@ -9,12 +9,12 @@ extern crate bitflags;
 #[macro_use]
 extern crate lazy_static;
 extern crate libc;
-extern crate nix;
+// extern crate nix;
 
 use std::fmt;
 use std::net;
 use libc::c_int;
-use core::result::Result;
+use std::error::Error;
 
 extern crate network_interface;
 
@@ -212,7 +212,7 @@ pub struct Interface {
 
 impl Interface {
     /// Retrieve a list of all interfaces on this system.
-    pub fn get_all() -> Result<Vec<Interface>> {
+    pub fn get_all() -> Result<Vec<Interface>, Error> {
 
         let network_interfaces: Vec<NetworkInterface> = NetworkInterface::show().unwrap();
         let mut res: Vec<Interface> = Vec::new();
