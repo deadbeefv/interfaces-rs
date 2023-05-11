@@ -14,15 +14,13 @@ extern crate libc;
 use std::fmt;
 use std::net;
 use libc::c_int;
-use std::error::Error;
+use network_interface::Error;
 
 extern crate network_interface;
 
 use network_interface::NetworkInterface;
 use network_interface::NetworkInterfaceConfig;
 
-use network_interface::V4IfAddr;
-use network_interface::V6IfAddr;
 
 // use error::InterfacesError;
 use flags::InterfaceFlags;
