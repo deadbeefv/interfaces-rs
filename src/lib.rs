@@ -113,7 +113,7 @@ pub struct Address {
     pub hop: Option<NextHop>,
 }
 
-fn to_address(addr: network_interface::Addr) -> Address {
+fn to_address(addr: &network_interface::Addr) -> Address {
     Address { 
         kind: {
             match addr {
@@ -280,7 +280,7 @@ impl Interface {
             let mut addrs: Vec<Address> = Vec::new();
             
             for addr in &netif.addr {
-                addrs.push(to_address(addr));
+                addrs.push(to_address(&addr));
             }
             let intf = Interface {
                 name: netif.name.clone(),
