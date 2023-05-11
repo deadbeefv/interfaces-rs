@@ -121,16 +121,16 @@ fn to_address(addr: network_interface::Addr) -> Address {
                 network_interface::Addr::V6(V6IfAddr) => Kind::Ipv6
             }
         }, 
-        addr: Some(net::SocketAddr::new(addr.ip(), None)), 
+        addr: Some(net::SocketAddr::new(addr.ip(), 0)), 
         mask: {
             match addr.netmask() {
-                Some(ip) => Some(net::SocketAddr::new(ip, None)),
+                Some(ip) => Some(net::SocketAddr::new(ip, 0)),
                 None => None
             }
         }, 
         hop: {
             match addr.broadcast() {
-                Some(broadcast) => Some(net::SocketAddr::new(broadcast, None)),
+                Some(broadcast) => Some(NextHop::Broadcast(net::SocketAddr::new(broadcast, 0))),
                 None => None
             }
         }
