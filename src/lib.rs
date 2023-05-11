@@ -11,16 +11,9 @@ extern crate lazy_static;
 extern crate libc;
 extern crate nix;
 
-use std::collections::HashMap;
-use std::ffi::CStr;
 use std::fmt;
-use std::mem;
 use std::net;
 use std::ptr;
-
-use libc::c_int;
-use libc::{close, ioctl, socket};
-use libc::{AF_INET, SOCK_DGRAM};
 
 extern crate network_interface;
 
@@ -29,15 +22,11 @@ use network_interface::NetworkInterfaceConfig;
 
 use network_interface::V4IfAddr;
 use network_interface::V6IfAddr;
-#[cfg(target_os = "linux")]
-use nix::sys::socket;
 
 pub use error::InterfacesError;
 pub use flags::InterfaceFlags;
 
-mod constants;
 mod error;
-mod ffi;
 
 /// Submodule containing various flags.
 pub mod flags;
@@ -202,52 +191,6 @@ impl fmt::Display for HardwareAddr {
     }
 }
 
-/// An iterator to walk through all `ifaddrs`.
-struct IfAddrIterator {
-    orig: *mut ffi::ifaddrs,
-    ifap: *mut ffi::ifaddrs,
-}
-
-impl IfAddrIterator {
-    fn new() -> Result<IfAddrIterator> {
-        // Get all interface addresses
-        let mut ifap: *mut ffi::ifaddrs = unsafe { mem::zeroed() };
-        if unsafe { ffi::getifaddrs(&mut ifap as *mut _) } != 0 {
-            return Err(InterfacesError::last_os_error());
-        }
-
-        Ok(IfAddrIterator {
-            orig: ifap,
-            ifap: ifap,
-        })
-    }
-}
-
-impl Iterator for IfAddrIterator {
-    type Item = *mut ffi::ifaddrs;
-
-    fn next(&mut self) -> Option<*mut ffi::ifaddrs> {
-        if self.ifap.is_null() {
-            return None;
-        }
-
-        let ret = self.ifap;
-        self.ifap = unsafe { (*self.ifap).ifa_next };
-        Some(ret)
-    }
-}
-
-impl Drop for IfAddrIterator {
-    fn drop(&mut self) {
-        // Zero the iterator pointer.
-        self.ifap = ptr::null_mut();
-
-        // Zero the original pointer in the structure and then free it.
-        let ptr = mem::replace(&mut self.orig, ptr::null_mut());
-        unsafe { ffi::freeifaddrs(ptr) };
-    }
-}
-
 /// The `Interface` structure represents a single interface on the system.  It also contains
 /// methods to control the interface.
 #[derive(Debug)]
@@ -292,37 +235,6 @@ impl Interface {
         }
 
         Ok(res)
-
-
-        // // Map each interface address to a single interface name.
-        // let mut ifs = HashMap::new();
-
-        // for cur in IfAddrIterator::new()? {
-        //     // Only support interfaces with valid names.
-        //     let ifname = match convert_ifaddr_name(cur) {
-        //         Some(n) => n,
-        //         None => continue,
-        //     };
-
-        //     let iface = if ifs.contains_key(&ifname) {
-        //         ifs.get_mut(&ifname).unwrap()
-        //     } else {
-        //         let new_if = match Interface::new_from_ptr(cur) {
-        //             Ok(i) => i,
-        //             Err(_) => continue,
-        //         };
-        //         ifs.insert(ifname.clone(), new_if);
-        //         ifs.get_mut(&ifname).unwrap()
-        //     };
-
-        //     // If we can, convert this current address.
-        //     if let Some(addr) = convert_ifaddr_address(cur) {
-        //         iface.addresses.push(addr);
-        //     }
-        // }
-
-        // let ret = ifs.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
-        // Ok(ret)
     }
 
     /// Returns an `Interface` instance representing the interface with the given name.  Will
@@ -341,309 +253,10 @@ impl Interface {
     /// # Ok(iface)
     /// # }
     /// ```
-    pub fn get_by_name(name: &str) -> Result<Option<Interface>> {
-        let mut ret = None;
 
-        for cur in IfAddrIterator::new()? {
-            // Only support interfaces with valid names.
-            let ifname = match convert_ifaddr_name(cur) {
-                Some(n) => n,
-                None => continue,
-            };
-
-            if ifname != name {
-                continue;
-            }
-
-            // Get or create the Interface
-            let mut i = match ret.take() {
-                Some(i) => i,
-                None => Interface::new_from_ptr(cur)?,
-            };
-
-            // If we can, convert this current address.
-            if let Some(addr) = convert_ifaddr_address(cur) {
-                i.addresses.push(addr);
-            }
-
-            ret = Some(i);
-        }
-
-        Ok(ret)
-    }
-
-    /// Create a new Interface from a given `ffi::ifaddrs`.
-    fn new_from_ptr(ifa: *mut ffi::ifaddrs) -> Result<Interface> {
-        let ifa = unsafe { &mut *ifa };
-
-        // NOTE: can unwrap() here since we only call this function if the prior call to
-        // convert_ifaddr_name succeeded.  It's a bit sad that we have to duplicate work, but not a
-        // huge deal.
-        let name = convert_ifaddr_name(ifa).unwrap();
-
-        // Try to create a socket that we use to get info about this interface.
-        let sock = unsafe { socket(AF_INET, SOCK_DGRAM, 0) };
-        if sock < 0 {
-            return Err(InterfacesError::last_os_error());
-        }
-
-        let flags = InterfaceFlags::from_bits_truncate(ifa.ifa_flags);
-        Ok(Interface {
-            name: name,
-            addresses: vec![],
-            flags: flags,
-            sock: sock,
-        })
-    }
-
-    /// Returns whether this interface is up.
-    pub fn is_up(&self) -> bool {
-        self.flags.contains(InterfaceFlags::IFF_UP)
-    }
-
-    /// Returns whether this interface is ready for transfer.
-    pub fn is_running(&self) -> bool {
-        self.flags.contains(InterfaceFlags::IFF_RUNNING)
-    }
-
-    /// Returns whether this interface is a loopback address.
-    pub fn is_loopback(&self) -> bool {
-        self.flags.contains(InterfaceFlags::IFF_LOOPBACK)
-    }
-
-    /// Retrieves the hardware address of this interface.
-    pub fn hardware_addr(&self) -> Result<HardwareAddr> {
-        self.hardware_addr_impl()
-    }
-
-    #[cfg(target_os = "linux")]
-    #[allow(non_snake_case)]
-    fn hardware_addr_impl(&self) -> Result<HardwareAddr> {
-        // We need this IOCTL in order to get the hardware address.
-        let SIOCGIFHWADDR = match constants::get_constant("SIOCGIFHWADDR") {
-            Some(c) => c,
-            None => return Err(InterfacesError::NotSupported("SIOCGIFHWADDR")),
-        };
-
-        let mut req = ffi::ifreq_with_hwaddr {
-            ifr_name: [0; ffi::IFNAMSIZ],
-            ifr_hwaddr: socket::sockaddr {
-                sa_family: 0,
-                sa_data: [0; 14],
-            },
-        };
-
-        copy_slice(&mut req.ifr_name, self.name.as_bytes());
-
-        let res = unsafe { ioctl(self.sock, SIOCGIFHWADDR, &mut req) };
-        if res < 0 {
-            return Err(InterfacesError::last_os_error());
-        }
-
-        let mut addr = [0; 6];
-        for i in 0..6 {
-            addr[i] = req.ifr_hwaddr.sa_data[i];
-        }
-
-        // Hardware addresses are `i8`s on some Linux versions for some reason?
-        let addr = unsafe { mem::transmute::<[_; 6], [u8; 6]>(addr) };
-        Ok(HardwareAddr(addr))
-    }
-
-    #[cfg(target_os = "macos")]
-    #[allow(non_snake_case)]
-    fn hardware_addr_impl(&self) -> Result<HardwareAddr> {
-        // We need certain constants - get them now.
-        let AF_LINK = match constants::get_constant("AF_LINK") {
-            Some(c) => c as i32,
-            None => return Err(InterfacesError::NotSupported("AF_LINK")),
-        };
-
-        // Walk all interfaces looking for one that is the right type and name.  We:
-        //  - Get the name from this interface
-        //  - Filter only where the name == ours
-        //  - Get only AF_LINK interfaces
-        let mut it = IfAddrIterator::new()?
-            .filter_map(|cur| {
-                if let Some(name) = convert_ifaddr_name(cur) {
-                    Some((name, cur))
-                } else {
-                    None
-                }
-            })
-            .filter(|&(ref name, _)| name == &self.name)
-            .filter(|&(_, ifa)| {
-                let ifa = unsafe { &mut *ifa };
-                let family = unsafe { *ifa.ifa_addr }.sa_family as i32;
-                family == AF_LINK
-            });
-
-        let link_if = match it.next() {
-            Some((_, ifa)) => ifa,
-            None => return Err(InterfacesError::NotSupported("No AF_LINK")),
-        };
-
-        let mut addr = [0; 6];
-        let mut pr = unsafe { ffi::rust_LLADDR(link_if) };
-
-        for i in 0..6 {
-            addr[i] = unsafe { *pr };
-            pr = ((pr as usize) + 1) as *const u8;
-        }
-
-        drop(it);
-        Ok(HardwareAddr(addr))
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    fn hardware_addr_impl(&self) -> Result<HardwareAddr> {
-        Err(InterfacesError::NotSupported("Unknown OS"))
-    }
-
-    /// Sets the interface as up or down.  This will change the status of the given interface in
-    /// the system, and update the flags of this `Interface` instance.
-    #[allow(non_snake_case)]
-    pub fn set_up(&mut self, up: bool) -> Result<()> {
-        // We need these IOCTLs in order to get/set the interface flags.
-        let SIOCGIFFLAGS = match constants::get_constant("SIOCGIFFLAGS") {
-            Some(c) => c,
-            None => return Err(InterfacesError::NotSupported("SIOCGIFFLAGS")),
-        };
-        let SIOCSIFFLAGS = match constants::get_constant("SIOCSIFFLAGS") {
-            Some(c) => c,
-            None => return Err(InterfacesError::NotSupported("SIOCSIFFLAGS")),
-        };
-
-        let mut req = ffi::ifreq_with_flags {
-            ifr_name: [0; ffi::IFNAMSIZ],
-            ifr_flags: 0,
-        };
-
-        copy_slice(&mut req.ifr_name, self.name.as_bytes());
-
-        // Get the existing flags.
-        let res = unsafe { ioctl(self.sock, SIOCGIFFLAGS, &mut req) };
-        if res < 0 {
-            let err = InterfacesError::last_os_error();
-            return Err(err);
-        }
-
-        // Depending on our up/down, clear IFF_UP.
-        // NOTE: we don't want to convert this to/from an InterfaceFlags variable, since that will
-        // strip out any unknown bits (which we don't want).  So, we just use good old bitwise
-        // operators to set/clear the flags.
-        let flag_val = InterfaceFlags::IFF_UP.bits() as u16;
-        req.ifr_flags = if up {
-            req.ifr_flags | flag_val
-        } else {
-            req.ifr_flags & (!flag_val)
-        };
-
-        // Set the flags back.
-        let res = unsafe { ioctl(self.sock, SIOCSIFFLAGS, &mut req) };
-        if res < 0 {
-            return Err(InterfacesError::last_os_error());
-        }
-
-        // Update our flags to represent the new state.
-        self.flags = InterfaceFlags::from_bits_truncate(req.ifr_flags as u32);
-
-        Ok(())
-    }
-
-    /// Retrieve the MTU of this interface.
-    #[allow(non_snake_case)]
-    pub fn get_mtu(&self) -> Result<u32> {
-        let SIOCGIFMTU = match constants::get_constant("SIOCGIFMTU") {
-            Some(c) => c,
-            None => return Err(InterfacesError::NotSupported("SIOCGIFMTU")),
-        };
-
-        let mut req = ffi::ifreq_with_mtu {
-            ifr_name: [0; ffi::IFNAMSIZ],
-            ifr_mtu: 0,
-        };
-
-        copy_slice(&mut req.ifr_name, self.name.as_bytes());
-
-        let res = unsafe { ioctl(self.sock, SIOCGIFMTU, &mut req) };
-        if res < 0 {
-            return Err(InterfacesError::last_os_error());
-        }
-
-        Ok(req.ifr_mtu as u32)
-    }
 }
 
-fn convert_ifaddr_name(ifa: *mut ffi::ifaddrs) -> Option<String> {
-    let ifa = unsafe { &mut *ifa };
-    match unsafe { CStr::from_ptr(ifa.ifa_name).to_str() } {
-        Ok(s) => Some(s.to_string()),
-        Err(_) => None,
-    }
-}
 
-// This is a bit scary, but the various address families are different from platform to platform,
-// and also from OS version to OS version.  Essentially, we have a couple of families that we know
-// about (IPv4, IPv6, etc.), and a couple that we determined at build time by compiling some C code
-// that tried to include the value of the AF_* constant.  For each of these, we try getting the
-// corresponding constant, and then verify if it matches.
-fn convert_ifaddr_family(family: i32) -> Kind {
-    // Helper macro!
-    macro_rules! check_family {
-        ($cc:tt -> $ty:ident) => {
-            if let Some(val) = constants::get_constant(stringify!($cc)) {
-                if family == val as i32 {
-                    return Kind::$ty;
-                }
-            }
-        };
-    }
-
-    check_family!(AF_PACKET -> Packet);
-    check_family!(AF_LINK -> Link);
-
-    match family {
-        libc::AF_INET => Kind::Ipv4,
-        libc::AF_INET6 => Kind::Ipv6,
-        val => Kind::Unknown(val),
-    }
-}
-
-fn convert_ifaddr_address(ifa: *mut ffi::ifaddrs) -> Option<Address> {
-    let ifa = unsafe { &mut *ifa };
-
-    let kind = if ifa.ifa_addr != ptr::null_mut() {
-        let fam = unsafe { *ifa.ifa_addr }.sa_family as i32;
-        convert_ifaddr_family(fam)
-    } else {
-        return None;
-    };
-
-    let addr = ffi::convert_sockaddr(ifa.ifa_addr);
-
-    let mask = ffi::convert_sockaddr(ifa.ifa_netmask);
-
-    let flags = InterfaceFlags::from_bits_truncate(ifa.ifa_flags);
-    let hop = if flags.contains(InterfaceFlags::IFF_BROADCAST) {
-        match ffi::convert_sockaddr(ifa.ifa_ifu.ifu_broadaddr()) {
-            Some(x) => Some(NextHop::Broadcast(x)),
-            None => None,
-        }
-    } else {
-        match ffi::convert_sockaddr(ifa.ifa_ifu.ifu_dstaddr()) {
-            Some(x) => Some(NextHop::Destination(x)),
-            None => None,
-        }
-    };
-
-    Some(Address {
-        kind: kind,
-        addr: addr,
-        mask: mask,
-        hop: hop,
-    })
-}
 
 impl PartialEq for Interface {
     fn eq(&self, other: &Interface) -> bool {
@@ -651,31 +264,10 @@ impl PartialEq for Interface {
     }
 }
 
-impl Eq for Interface {}
-
-impl Drop for Interface {
-    fn drop(&mut self) {
-        let sock = mem::replace(&mut self.sock, 0);
-        unsafe { close(sock) };
-    }
-}
-
 impl fmt::Display for Interface {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Name: {} \nAddresses {:?}\n", self.name, self.addresses)
     }
-}
-
-// Helper function
-fn copy_slice(dst: &mut [u8], src: &[u8]) -> usize {
-    let mut c = 0;
-
-    for (d, s) in dst.iter_mut().zip(src.iter()) {
-        *d = *s;
-        c += 1;
-    }
-
-    c
 }
 
 #[cfg(test)]
