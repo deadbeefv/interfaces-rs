@@ -256,8 +256,6 @@ impl Interface {
 
 }
 
-
-
 impl PartialEq for Interface {
     fn eq(&self, other: &Interface) -> bool {
         self.name == other.name
