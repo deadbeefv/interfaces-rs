@@ -127,71 +127,6 @@ fn to_address(addr: &network_interface::Addr) -> Address {
     }
 }
 
-/// HardwareAddr represents a hardware address (commonly known as a MAC address) of a given
-/// interface.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct HardwareAddr([u8; 6]);
-
-impl HardwareAddr {
-    /// Returns a new, empty `HardwareAddr` structure.  This is equivalent to the MAC address
-    /// `00:00:00:00:00:00`.
-    pub fn zero() -> HardwareAddr {
-        HardwareAddr([0; 6])
-    }
-
-    /// Formats this hardware address in the standard MAC address format - 6 octets in hexadecimal
-    /// format, each seperated by a colon.
-    ///
-    /// ```
-    /// # use interfaces::HardwareAddr;
-    /// let s = HardwareAddr::zero().as_string();
-    /// assert_eq!(s, "00:00:00:00:00:00");
-    /// ```
-    pub fn as_string(&self) -> String {
-        let &HardwareAddr(ref arr) = self;
-
-        format!(
-            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            arr[0], arr[1], arr[2], arr[3], arr[4], arr[5],
-        )
-    }
-
-    /// Formats this hardware address as a sequence of hexadecimal numbers without the seperating
-    /// colons.
-    ///
-    /// ```
-    /// # use interfaces::HardwareAddr;
-    /// let s = HardwareAddr::zero().as_bare_string();
-    /// assert_eq!(s, "000000000000");
-    /// ```
-    pub fn as_bare_string(&self) -> String {
-        let &HardwareAddr(ref arr) = self;
-
-        format!(
-            "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-            arr[0], arr[1], arr[2], arr[3], arr[4], arr[5],
-        )
-    }
-
-    /// Returns the raw bytes representing this hardware address.
-    ///
-    /// ```
-    /// # use interfaces::HardwareAddr;
-    /// let s = HardwareAddr::zero();
-    /// assert_eq!(s.as_bytes(), &[0, 0, 0, 0, 0, 0]);
-    /// ```
-    pub fn as_bytes(&self) -> &[u8] {
-        let &HardwareAddr(ref arr) = self;
-        arr
-    }
-}
-
-impl fmt::Display for HardwareAddr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.as_string())
-    }
-}
-
 /// The `Interface` structure represents a single interface on the system.  It also contains
 /// methods to control the interface.
 #[derive(Debug)]
@@ -264,25 +199,6 @@ mod tests {
             println!("{}", intf);
         }
         assert!(ifs[0] == ifs[0]);
-    }
-
-    #[test]
-    fn test_hardwareaddr_deriving() {
-        let one = HardwareAddr::zero();
-        let two = HardwareAddr::zero();
-
-        assert!(one == two);
-        assert_is_clone(&one);
-        assert_is_copy(&one);
-        assert_is_hash(&one);
-    }
-
-    #[test]
-    fn test_hardwareaddr_format() {
-        let h = HardwareAddr::zero();
-
-        assert_eq!(h.as_string(), "00:00:00:00:00:00");
-        assert_eq!(h.as_bare_string(), "000000000000");
     }
 
     fn assert_is_clone<T: Clone>(_: &T) {}

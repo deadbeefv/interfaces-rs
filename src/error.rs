@@ -2,6 +2,7 @@ use std::convert::From;
 use std::error::Error;
 use std::fmt;
 
+// extern crate nix;
 use nix;
 
 /// InterfacesError is the error type that is returned by all functions in this crate.  See the
