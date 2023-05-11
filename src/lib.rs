@@ -14,7 +14,7 @@ extern crate nix;
 use std::fmt;
 use std::net;
 use libc::c_int;
-use std::ptr;
+use core::result::Result;
 
 extern crate network_interface;
 
