@@ -24,16 +24,13 @@ use network_interface::NetworkInterfaceConfig;
 use network_interface::V4IfAddr;
 use network_interface::V6IfAddr;
 
-pub use error::InterfacesError;
-pub use flags::InterfaceFlags;
+use error::InterfacesError;
+use flags::InterfaceFlags;
 
-mod error;
+// mod error;
 
 /// Submodule containing various flags.
 pub mod flags;
-
-/// A specialized Result type for this crate.
-pub type Result<T> = ::std::result::Result<T, InterfacesError>;
 
 /// `Kind` represents the interface family (equivalent to the `sa_family` field in the `sockaddr`
 /// structure).
