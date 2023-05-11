@@ -285,7 +285,7 @@ impl Interface {
             let intf = Interface {
                 name: netif.name.clone(),
                 addresses: addrs,
-                flags: InterfaceFlags,
+                flags: InterfaceFlags::IFF_UP,
                 sock: 1,
             };
             res.push(intf);
